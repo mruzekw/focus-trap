@@ -104,7 +104,7 @@ const createFocusTrap = function (elements, userOptions) {
     //  is active, but the trap should never get to a state where there isn't at least one group
     //  with at least one tabbable node in it (that would lead to an error condition that would
     //  result in an error being thrown)
-    // @type {Array<{ container: HTMLElement, firstTabbableNode: HTMLElement|null, lastTabbableNode: HTMLElement|null }>}
+    // @type {Array<{ container: HTMLElement, tabbableNodes: Array<HTMLElement>, firstTabbableNode: HTMLElement|null, lastTabbableNode: HTMLElement|null }>}
     tabbableGroups: [],
 
     nodeFocusedBeforeActivation: null,
@@ -175,6 +175,7 @@ const createFocusTrap = function (elements, userOptions) {
         if (tabbableNodes.length > 0) {
           return {
             container,
+            tabbableNodes,
             firstTabbableNode: tabbableNodes[0],
             lastTabbableNode: tabbableNodes[tabbableNodes.length - 1],
           };
@@ -263,10 +264,31 @@ const createFocusTrap = function (elements, userOptions) {
     // In Firefox when you Tab out of an iframe the Document is briefly focused.
     if (targetContained || e.target instanceof Document) {
       if (targetContained) {
+        console.log('[checkFocusIn] updating state.mostRecentlyFocusedNode to', e.target); // DEBUG
         state.mostRecentlyFocusedNode = e.target;
       }
     } else {
       // escaped! pull it back in to where it just left
+      // NOTE: when nodes in a container have positive tab indexes (> 0), when the
+      //  last node with a positive tab index is visited, Chrome and FF both send
+      //  focus to the top of the document (it's like the last tabbable node with
+      //  tabindex > 0 ends-up being the last node in tab order, while the tab
+      //  sequence should then fall to the first node in the container that has
+      //  tabindex=0 or no tab index at all and is tabbable)
+
+      // DEBUG TODO: find the tabbableGroup in state.tabbableGroups that contains
+      //  state.mostRecentlyFocusedNode (if it isn't null), then find its order
+      //  in tabbableNodes in that group, and set focus to the node AFTER it,
+      //  checking for boundaries and looping (not sure how to know what direction
+      //  focus was moving -- maybe set a state flag in checkTab() since checkTab()
+      //  will always come before checkFocusIn())
+      // DEBUG TODO: when going in reverse, it seems focus escapes on SHIFT+TAB
+      //  when leaving the node with no tabindex just before it should (I think)
+      //  come to some node that has tabindex > 0
+      // DEBUG TODO: will need to test this with container that has ALL nodes with
+      //  tabindex > 0, and probably a few other corner cases
+
+      console.log('[checkFocusIn] focus escaped, pulling back in to state.mostRecentlyFocusedNode', state.mostRecentlyFocusedNode); // DEBUG
       e.stopImmediatePropagation();
       tryFocus(state.mostRecentlyFocusedNode || getInitialFocusNode());
     }
